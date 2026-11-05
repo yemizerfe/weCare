@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wecare-config
+  labels:
+    app.kubernetes.io/part-of: wecare
+data:
+  NODE_ENV: production
+  PORT: "3000"
+  # Public origin that serves the app. Requests reach the API through the web
+  # pod's nginx proxy, so this is the same origin the browser uses.
+  CORS_ORIGIN: https://wecare.example.com
+  # Same-origin cookies; use "none" only if web and API are on different sites.
+  COOKIE_SAME_SITE: lax

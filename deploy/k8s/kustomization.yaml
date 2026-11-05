@@ -1,0 +1,34 @@
+# Apply everything with:
+#
+#   kubectl apply -k deploy/k8s
+#
+# Prerequisites:
+#   1. Fill in deploy/k8s/configmap.yaml for your host, then apply it with this
+#      kustomization (CORS_ORIGIN must match your ingress host).
+#   2. Create the wecare-secrets Secret (see secret.example.yaml).
+#   3. Build and push the two images, then update `images` below.
+#
+# secret.example.yaml is intentionally not listed: it contains placeholders and
+# must never be applied as-is.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: wecare
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - mongo.yaml
+  - api.yaml
+  - web.yaml
+  - ingress.yaml
+
+images:
+  - name: wecare/api
+    newTag: latest
+  - name: wecare/web
+    newTag: latest
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: wecare

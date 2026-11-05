@@ -8,6 +8,12 @@ const reminderSchema = new mongoose.Schema({
     reminder: {
         type: String,
         required: true
+    },
+    caregiverId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'users',
+        required: true,
+        index: true
     }
 }, { timestamps: true });
 

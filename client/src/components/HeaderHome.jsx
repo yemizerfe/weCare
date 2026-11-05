@@ -1,15 +1,21 @@
-import React from 'react'
-import { useState } from 'react'
-
 function HeaderHome({ onSignupClick,onSigninClick }) {
-
     return (
-        <div className='fixed top-0 right-0  flex flex-row justify-between m-3 p-5 z-70 '>
-            <button type='button' className='mx-5 font-bold text-xl bg-indigo-300 hover:bg-indigo-200 cursor-pointer p-3 rounded-lg outline-3 outline-offset-2 outline-double outline-indigo-500 font-serif animate-bounce' onClick={onSignupClick}>SignUp</button>
-            <button type='button' className=' font-bold text-lg bg-indigo-200 p-3 hover:bg-indigo-100 cursor-pointer rounded-lg outline-3 outline-offset-2 outline-double outline-indigo-500 font-serif' onClick={onSigninClick}>SignIn</button>
-        </div>
-
-
+        <header className="site-header">
+            <nav aria-label="Main navigation" className="site-header__inner">
+                <a href="#main" className="brand" aria-label="weCare home">
+                    <span className="brand__mark" aria-hidden="true"><span /></span>
+                    <span>we<span className="brand__accent">Care</span></span>
+                </a>
+                <div className="site-header__links">
+                    <a className="site-header__link" href="#how-it-helps">How it helps</a>
+                    <a className="site-header__link" href="#who-its-for">Who it’s for</a>
+                </div>
+                <div className="site-header__actions">
+                    <button type="button" className="site-header__signin" onClick={onSigninClick}>Sign in</button>
+                    <button type="button" className="button button--small" onClick={onSignupClick}>Get started</button>
+                </div>
+            </nav>
+        </header>
     )
 }
 

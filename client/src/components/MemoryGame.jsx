@@ -1,141 +1,96 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react'
 
-const cardsData = ['🍎', '🍌', '🍇', '🍓', '🍎', '🍌', '🍇', '🍓']; // pairs
-const shuffledCards = [...cardsData].sort(() => 0.5 - Math.random());
+const symbols = ['🍎', '🍌', '🍇', '🍓']
 
-const MemoryGame = () => {
-  const [cards, setCards] = useState(shuffledCards.map((symbol, index) => ({
-    id: index,
-    symbol,
-    flipped: false,
-    matched: false
-  })));
+function createCards() {
+  const shuffled = [...symbols, ...symbols].sort(() => Math.random() - 0.5)
+  return shuffled.map((symbol, id) => ({ id, symbol, flipped: false, matched: false }))
+}
+
+function MemoryGame() {
+  const [cards, setCards] = useState(createCards);
   const [selected, setSelected] = useState([]);
-  const [matchedCount, setMatchedCount] = useState(0);
+  const [matchedPairs, setMatchedPairs] = useState(0);
+  const [locked, setLocked] = useState(false);
+  const timeoutRef = useRef(null);
 
-  useEffect(() => {
-    if (selected.length === 2) {
-      const [first, second] = selected;
-      if (cards[first].symbol === cards[second].symbol) {
-        const updatedCards = cards.map((card, index) =>
-          index === first || index === second ? { ...card, matched: true } : card
-        );
-        setCards(updatedCards);
-        setMatchedCount(matchedCount + 1);
-        setSelected([]);
-      } else {
-        setTimeout(() => {
-          const updatedCards = cards.map((card, index) =>
-            index === first || index === second ? { ...card, flipped: false } : card
-          );
-          setCards(updatedCards);
-          setSelected([]);
-        }, 1000);
-      }
-    }
-  }, [selected]);
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
   const handleFlip = (index) => {
-    if (cards[index].flipped || cards[index].matched || selected.length === 2) return;
+    if (locked || cards[index].flipped || cards[index].matched) return;
 
-    const updatedCards = [...cards];
-    updatedCards[index].flipped = true;
+    const updatedCards = cards.map((card, cardIndex) => (
+      cardIndex === index ? { ...card, flipped: true } : card
+    ));
     setCards(updatedCards);
-    setSelected([...selected, index]);
+
+    if (selected.length === 0) {
+      setSelected([index]);
+      return;
+    }
+
+    const firstIndex = selected[0];
+    setSelected([]);
+    if (cards[firstIndex].symbol === cards[index].symbol) {
+      setCards(updatedCards.map((card, cardIndex) => (
+        cardIndex === firstIndex || cardIndex === index ? { ...card, matched: true } : card
+      )));
+      setMatchedPairs((count) => count + 1);
+      return;
+    }
+
+    setLocked(true);
+    timeoutRef.current = setTimeout(() => {
+      setCards((currentCards) => currentCards.map((card, cardIndex) => (
+        cardIndex === firstIndex || cardIndex === index ? { ...card, flipped: false } : card
+      )));
+      setLocked(false);
+    }, 1000);
   };
 
   const resetGame = () => {
-    const reshuffled = [...cardsData].sort(() => 0.5 - Math.random()).map((symbol, index) => ({
-      id: index,
-      symbol,
-      flipped: false,
-      matched: false
-    }));
-    setCards(reshuffled);
+    clearTimeout(timeoutRef.current);
+    setCards(createCards());
     setSelected([]);
-    setMatchedCount(0);
+    setMatchedPairs(0);
+    setLocked(false);
   };
 
-  return (
-    <div style={styles.container}>
-      <h2 style={styles.title}>🧠 Memory Match Game</h2>
-      <div style={styles.grid}>
-        {cards.map((card, index) => (
-          <div
-            key={card.id}
-            style={{
-              ...styles.card,
-              backgroundColor: card.flipped || card.matched ? '#f9fafb' : '#4f46e5',
-              cursor: card.flipped || card.matched ? 'default' : 'pointer',
-            }}
-            onClick={() => handleFlip(index)}
-          >
-            <span style={styles.cardText}>
-              {card.flipped || card.matched ? card.symbol : '❓'}
-            </span>
-          </div>
-        ))}
-      </div>
-      {matchedCount === cardsData.length / 2 && (
-        <div style={styles.message}>
-          🎉 Great job! All matches found.
-          <button style={styles.button} onClick={resetGame}>Play Again</button>
-        </div>
-      )}
-    </div>
-  );
-};
+  const won = matchedPairs === symbols.length;
 
-const styles = {
-  container: {
-    fontFamily: 'sans-serif',
-    textAlign: 'center',
-    padding: '20px',
-    minHeight: '90vh',
-    boxShadow: '1px 2px blue'
-  },
-  title: {
-    fontSize: '2rem',
-    marginBottom: '20px',
-    color: '#1e40af'
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 80px)',
-    gap: '10px',
-    justifyContent: 'center',
-    marginBottom: '20px'
-  },
-  card: {
-    width: '80px',
-    height: '80px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '2rem',
-    borderRadius: '8px',
-    color: '#1e3a8a',
-    boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-    userSelect: 'none'
-  },
-  cardText: {
-    fontSize: '2rem'
-  },
-  message: {
-    fontSize: '1.2rem',
-    color: '#065f46',
-    marginTop: '20px'
-  },
-  button: {
-    marginLeft: '10px',
-    padding: '8px 16px',
-    fontSize: '1rem',
-    backgroundColor: '#9d99dfff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer'
-  }
-};
+  return (
+    <section className="memory-game">
+      <div className="memory-game__top">
+        <div>
+          <span className="memory-game__eyebrow">A MOMENT TO PLAY</span>
+          <h2>A little memory match</h2>
+        </div>
+        <p className="memory-game__score" aria-live="polite">
+        {won ? 'Wonderful! You found every pair.' : `Pairs found: ${matchedPairs} of ${symbols.length}`}
+        </p>
+      </div>
+      <div className="memory-game__grid">
+        {cards.map((card, index) => {
+          const visible = card.flipped || card.matched;
+          return (
+            <button
+              key={card.id}
+              type="button"
+              className={`memory-game__card${visible ? ' memory-game__card--visible' : ''}${card.matched ? ' memory-game__card--matched' : ''}`}
+              onClick={() => handleFlip(index)}
+              disabled={visible || locked || won}
+              aria-label={visible ? `${card.symbol}${card.matched ? ', matched' : ''}` : `Reveal card ${index + 1}`}
+            >
+              <span aria-hidden="true">{visible ? card.symbol : '?'}</span>
+            </button>
+          );
+        })}
+      </div>
+      <button className="app-button app-button--primary memory-game__reset" type="button" onClick={resetGame}>
+        <span aria-hidden="true">↻</span> Start a new game
+      </button>
+    </section>
+  );
+}
 
 export default MemoryGame;

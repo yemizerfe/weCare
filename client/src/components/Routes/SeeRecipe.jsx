@@ -1,40 +1,52 @@
-import React from 'react'
-import Whoisitfor from '../whoisitfor'
-import RecipeSection from '../RecipeSection'
+import { useEffect, useState } from 'react'
 import HeaderPatient from '../HeaderPatient'
 import Footer from '../Footer'
-import recipeImage from '../../assets/Images/re.png'
+import PageHeading from '../PageHeading'
+import api from '../../api'
 
 function SeeRecipe() {
+    const [routines, setRoutines] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState('')
+
+    useEffect(() => {
+        api.get('/tasks')
+            .then(({ data }) => setRoutines(data))
+            .catch((requestError) => setError(requestError.response?.data?.message || 'Unable to load routines. Please try again.'))
+            .finally(() => setLoading(false))
+    }, [])
+
     return (
-        <div className=''>
+        <div className="app-page">
             <HeaderPatient />
-
-            <h1 className='text-center text-7xl font-serif m-24 font-bold '>weCare</h1>
-            <div className='flex flex-col items-center justify-center my-10'>
-
-                <h2 className='w-full shadow-2xl shadow-indigo-100  p-5 font-serif text-2xl text-center text-indigo-500'>See Order of Tasks!</h2>
-
-            </div>
-            <hr className='border-1 border-indigo-200' />
-
-            <section className='mx-auto w-40 bg-white'>
-
-                <Whoisitfor image={recipeImage}
-                />
-            </section>
-
-
-            <section className='flex flex-col items-center w-3/4 mx-auto'>
-                <RecipeSection />
-                <RecipeSection />
-                <RecipeSection />
-                <RecipeSection />
-
-            </section>
-
-
-
+            <main className="app-main">
+                <PageHeading eyebrow="One step at a time" title="My routines" description="Your familiar steps are here whenever you need a little reminder." />
+                <section className="routine-grid" aria-live="polite">
+                    {loading && <p role="status" className="app-empty">Loading your routines...</p>}
+                    {error && <p role="alert" className="form-message form-message--error">{error}</p>}
+                    {!loading && !error && routines.length === 0 && (
+                        <div className="app-empty app-empty--wide">
+                            <span className="empty-icon" aria-hidden="true">☷</span>
+                            <h2>Your routines will show up here</h2>
+                            <p>Your caregiver can add familiar step-by-step routines whenever you need them.</p>
+                        </div>
+                    )}
+                    {routines.map((routine) => (
+                        <article key={routine._id} className="routine-card">
+                            <span className="routine-card__icon" aria-hidden="true">☷</span>
+                            <h2>{routine.title}</h2>
+                            <ol>
+                                {routine.tasks.split(/\r?\n/).filter(Boolean).map((step, index) => (
+                                    <li key={`${routine._id}-${index}`}>
+                                        <span className="routine-step__number">{index + 1}</span>
+                                        <span>{step}</span>
+                                    </li>
+                                ))}
+                            </ol>
+                        </article>
+                    ))}
+                </section>
+            </main>
             <Footer />
         </div>
     )

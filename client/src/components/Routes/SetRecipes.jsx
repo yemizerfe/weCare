@@ -1,78 +1,179 @@
-import React from 'react'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Footer from '../Footer'
 import HeaderCareGiver from '../HeaderCareGiver'
-import recipe from '../../assets/Images/recipes.png'
+import PageHeading from '../PageHeading'
+import api from '../../api'
+import { splitSteps } from '../../utils/date'
 
 function SetRecipes() {
-    const [title, setTitle] = useState('');
-    const [tasks, setTasks] = useState([]);
+    const [title, setTitle] = useState('')
+    const [tasks, setTasks] = useState('')
+    const [routines, setRoutines] = useState([])
+    const [editingId, setEditingId] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
+    const [deletingId, setDeletingId] = useState(null)
+    const [message, setMessage] = useState('')
+    const [error, setError] = useState('')
 
-    const handleSetTask = async (e) => {
-        e.preventDefault();
+    const loadRoutines = useCallback(async () => {
+        try {
+            const { data } = await api.get('/tasks')
+            setRoutines(data)
+            setError('')
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || 'Unable to load routines. Please try again.')
+        } finally {
+            setLoading(false)
+        }
+    }, [])
 
-        const response = await axios.post('http://localhost:3000/setTask',{
-            title,
-            tasks
-        });
+    useEffect(() => {
+        loadRoutines()
+    }, [loadRoutines])
 
-
+    const resetForm = () => {
+        setTitle('')
+        setTasks('')
+        setEditingId(null)
     }
+
+    const handleSetTask = async (event) => {
+        event.preventDefault()
+        setMessage('')
+        setError('')
+        setSaving(true)
+        try {
+            if (editingId) {
+                const { data } = await api.patch(`/tasks/${editingId}`, { title, tasks })
+                setRoutines((current) => current.map((item) => (item._id === editingId ? { ...item, ...data } : item)))
+                setMessage('Routine updated.')
+            } else {
+                const { data } = await api.post('/tasks', { title, tasks })
+                setRoutines((current) => [data, ...current])
+                setMessage('Routine saved for your loved one.')
+            }
+            resetForm()
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || 'Unable to save this routine. Please try again.')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const startEditing = (routine) => {
+        setEditingId(routine._id)
+        setTitle(routine.title)
+        setTasks(routine.tasks)
+        setMessage('')
+        setError('')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        window.setTimeout(() => document.getElementById('title')?.focus(), 250)
+    }
+
+    const removeRoutine = async (routine) => {
+        if (!window.confirm(`Remove the routine “${routine.title}”? This cannot be undone.`)) return
+        setDeletingId(routine._id)
+        setMessage('')
+        setError('')
+        try {
+            await api.delete(`/tasks/${routine._id}`)
+            setRoutines((current) => current.filter((item) => item._id !== routine._id))
+            if (editingId === routine._id) resetForm()
+            setMessage('Routine removed.')
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || 'Unable to remove this routine. Please try again.')
+        } finally {
+            setDeletingId(null)
+        }
+    }
+
     return (
-        <div>
+        <div className="app-page">
             <HeaderCareGiver />
-            <h1 className='text-center text-7xl font-serif m-24 font-bold '>weCare</h1>
-            <div className='flex flex-col items-center justify-center my-10'>
-                <h2 className='w-3/4 shadow-2xl shadow-indigo-100  p-5 font-serif text-2xl text-center text-indigo-500'>Set Orders of Tasks to Make Them Easier To Do!</h2>
+            <main className="app-main">
+                <PageHeading
+                    eyebrow="Familiar steps, made simple"
+                    title={editingId ? 'Edit routine' : 'Create a routine'}
+                    description="Break a daily activity into clear, manageable steps."
+                />
+                <section className="app-panel form-panel">
+                    <div className="form-panel__intro">
+                        <span className="form-panel__icon" aria-hidden="true">☷</span>
+                        <div>
+                            <h2>{editingId ? 'Update these steps' : 'Make each step feel familiar'}</h2>
+                            <p>Write one simple action per line, in the order it happens.</p>
+                        </div>
+                    </div>
+                    <form className="app-form" onSubmit={handleSetTask}>
+                        <label htmlFor="title">Routine name</label>
+                        <input type="text" id="title" value={title} onChange={(event) => setTitle(event.target.value)}
+                            maxLength={100} required className="app-input" placeholder="Getting ready for the day" />
 
-            </div>
-            <hr className='border-1 border-indigo-300' />
+                        <label htmlFor="orderedTasks">Steps <span className="label-hint">One step per line</span></label>
+                        <textarea id="orderedTasks" value={tasks} onChange={(event) => setTasks(event.target.value)}
+                            maxLength={2000} required rows={6} className="app-input app-textarea"
+                            placeholder={"Wash hands\nBrush teeth\nGet dressed"} />
 
-            <div className="flex flex-col items-center my-5" >
-                <section className="shadow-xl shadow-indigo-200 w-3/4 my-10 p-10 transition delay-150 duration-300 ease-in-out hover:scale-110 rounded-xl bg-white">
+                        <div className="form-actions">
+                            <button type="submit" disabled={saving} className="app-button app-button--primary">
+                                {saving ? 'Saving…' : editingId ? 'Save changes' : 'Save routine'}
+                            </button>
+                            {editingId && (
+                                <button type="button" className="app-button app-button--secondary" onClick={resetForm} disabled={saving}>
+                                    Cancel
+                                </button>
+                            )}
+                        </div>
+                    </form>
+                    {message && <p role="status" className="form-message form-message--success">{message}</p>}
+                    {error && <p role="alert" className="form-message form-message--error">{error}</p>}
+                </section>
 
-                    <div className="flex flex-row justify-center my-5 shadow-xl w-full ">
-                        <img src={recipe} alt="recipe-image" className="w-64 h-64 object-contain" />
+                <section className="manage-section">
+                    <div className="care-notes-list__heading">
+                        <div>
+                            <span className="page-heading__eyebrow">CURRENT ROUTINES</span>
+                            <h2>{routines.length} routine{routines.length === 1 ? '' : 's'} shared</h2>
+                        </div>
+                        <button type="button" className="app-button app-button--secondary" onClick={loadRoutines} disabled={loading}>
+                            {loading ? 'Refreshing…' : 'Refresh'}
+                        </button>
                     </div>
 
-                    <form className="flex flex-col items-center z-10">
-                        <label htmlFor="title" className="font-serif text-xl font-bold my-5">
-                            Enter The Title of Task
-                        </label>
-                        <input
-                            type="text"
-                            id="title"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            name="title"
-                            className="outline outline-2 outline-indigo-500 w-64 h-12 font-serif font-normal rounded-sm px-2 py-1 focus:shadow-xl"
-                        />
+                    {loading && <p role="status" className="app-empty">Loading routines...</p>}
+                    {!loading && routines.length === 0 && (
+                        <div className="app-empty app-empty--wide">
+                            <span className="empty-icon" aria-hidden="true">☷</span>
+                            <h2>No routines yet</h2>
+                            <p>Create your first routine above to give familiar activities a clear, calm structure.</p>
+                        </div>
+                    )}
 
-                        <label htmlFor="orderedTasks" className="font-serif text-xl font-bold my-5">
-                            Enter The Order of The Task
-                        </label>
-                        <textarea
-                            type="text"
-                            id="orderedTasks"
-                            value={tasks}
-                            onChange={(e) => setTasks(e.target.value)}
-                            name="orderedTasks"
-                            className="outline outline-2 outline-indigo-500 w-64 h-20 font-serif font-normal rounded-sm px-2 py-1 focus:shadow-xl"
-                        >
-
-                        </textarea>
-
-                        <button
-                            type="submit"
-                            className="font-bold mt-10 font-serif text-md bg-indigo-300 p-3 cursor-pointer rounded-lg
-                                outline outline-2 outline-indigo-500 w-24 hover:bg-indigo-200 transition duration-300 ease-in-out"
-                            onClick={handleSetTask}>
-                            Set
-                        </button>
-                    </form>
-
+                    <ul className="manage-list">
+                        {routines.map((routine) => (
+                            <li className={`manage-item manage-item--stacked${editingId === routine._id ? ' manage-item--editing' : ''}`} key={routine._id}>
+                                <div className="manage-item__body">
+                                    <h3>{routine.title}</h3>
+                                    <ol className="manage-item__steps">
+                                        {splitSteps(routine.tasks).map((step, index) => (
+                                            <li key={`${routine._id}-${index}`}>{step}</li>
+                                        ))}
+                                    </ol>
+                                </div>
+                                <div className="manage-item__actions">
+                                    <button type="button" className="app-button app-button--secondary" onClick={() => startEditing(routine)}>
+                                        Edit
+                                    </button>
+                                    <button type="button" className="app-button app-button--danger" onClick={() => removeRoutine(routine)} disabled={deletingId === routine._id}>
+                                        {deletingId === routine._id ? 'Removing…' : 'Remove'}
+                                    </button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
                 </section>
-            </div>
+            </main>
             <Footer />
         </div>
     )

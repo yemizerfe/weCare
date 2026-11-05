@@ -1,89 +1,196 @@
-import React from 'react'
-import { useState } from 'react'
-import axios from 'axios'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import HeaderCareGiver from '../HeaderCareGiver'
 import Footer from '../Footer'
-import memoryAlbumImage from '../../assets/Images/memory.png'
+import PageHeading from '../PageHeading'
+import api, { apiAssetUrl } from '../../api'
 
 function SetMemoryAlbum() {
-    const [image, setImage] = useState('');
-    const [description, setDescription] = useState('');
-    const [res, setRes] = useState('');
+    const [image, setImage] = useState(null)
+    const [description, setDescription] = useState('')
+    const [albums, setAlbums] = useState([])
+    const [editingId, setEditingId] = useState(null)
+    const [editingDescription, setEditingDescription] = useState('')
+    const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
+    const [deletingId, setDeletingId] = useState(null)
+    const [message, setMessage] = useState('')
+    const [error, setError] = useState('')
+    const fileInputRef = useRef(null)
 
-    const handleSetAlbum = async (e) => {
-        e.preventDefault();
+    const loadAlbums = useCallback(async () => {
         try {
-            const formData = new FormData();
-            formData.append('image', image);
-            formData.append('description', description);
-
-            const response = await axios.post('http://localhost:3000/setAlbum', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-
-            setRes(response.data.message);
-            setImage('');
-            setDescription('');
+            const { data } = await api.get('/albums')
+            setAlbums(data)
+            setError('')
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || 'Unable to load the memory album. Please try again.')
+        } finally {
+            setLoading(false)
         }
-        catch (e) {
-            console.log(e);
+    }, [])
+
+    useEffect(() => {
+        loadAlbums()
+    }, [loadAlbums])
+
+    const handleSetAlbum = async (event) => {
+        event.preventDefault()
+        setError('')
+        setMessage('')
+        if (!image) {
+            setError('Choose a photo to add to the memory album.')
+            return
+        }
+        setSaving(true)
+        try {
+            const formData = new FormData()
+            formData.append('image', image)
+            formData.append('description', description)
+            await api.post('/albums', formData)
+            setMessage('Memory added to the shared album.')
+            setImage(null)
+            setDescription('')
+            if (fileInputRef.current) fileInputRef.current.value = ''
+            await loadAlbums()
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || 'Unable to save this memory. Please try again.')
+        } finally {
+            setSaving(false)
         }
     }
+
+    const startEditing = (album) => {
+        setEditingId(album._id)
+        setEditingDescription(album.description)
+        setMessage('')
+        setError('')
+    }
+
+    const saveCaption = async (id) => {
+        setError('')
+        setMessage('')
+        try {
+            const { data } = await api.patch(`/albums/${id}`, { description: editingDescription })
+            setAlbums((current) => current.map((album) => (
+                album._id === id ? { ...album, description: data.description } : album
+            )))
+            setEditingId(null)
+            setEditingDescription('')
+            setMessage('Caption updated.')
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || 'Unable to update this caption. Please try again.')
+        }
+    }
+
+    const removeAlbum = async (album) => {
+        if (!window.confirm('Remove this photo from the memory album? This cannot be undone.')) return
+        setDeletingId(album._id)
+        setError('')
+        setMessage('')
+        try {
+            await api.delete(`/albums/${album._id}`)
+            setAlbums((current) => current.filter((entry) => entry._id !== album._id))
+            if (editingId === album._id) setEditingId(null)
+            setMessage('Memory removed.')
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || 'Unable to remove this memory. Please try again.')
+        } finally {
+            setDeletingId(null)
+        }
+    }
+
     return (
-        <div>
+        <div className="app-page">
             <HeaderCareGiver />
-            <h1 className='text-center text-7xl font-serif m-24 font-bold '>weCare</h1>
-            <h2 className='w-full shadow-2xl shadow-indigo-100 my-5 p-5 font-serif text-2xl text-center text-indigo-500'>Set Beautiful Memories!</h2>
-            <hr className='border-1 border-indigo-200' />
-
-            <div className="flex flex-col items-center my-5" >
-                <section className="shadow-xl shadow-indigo-200 w-3/4 my-10 p-10 transition delay-150 duration-300 ease-in-out hover:scale-110 rounded-xl bg-white">
-
-                    <div className="flex flex-row justify-center my-5 shadow-xl w-full ">
-                        <img src={memoryAlbumImage} alt="reminder" className="w-64 h-64 object-contain" />
+            <main className="app-main">
+                <PageHeading eyebrow="Keep the stories close" title="Add a memory" description="Share a photo and a few words to make your loved one’s album feel personal." />
+                <section className="app-panel form-panel">
+                    <div className="form-panel__intro">
+                        <span className="form-panel__icon" aria-hidden="true">▧</span>
+                        <div>
+                            <h2>Every picture has a story</h2>
+                            <p>Add a favorite photo and a note they’ll recognize. JPG, PNG, WEBP, or GIF up to 5 MB.</p>
+                        </div>
                     </div>
+                    <form className="app-form" onSubmit={handleSetAlbum}>
+                        <label htmlFor="image">Choose a photo</label>
+                        <input ref={fileInputRef} type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp,image/gif"
+                            onChange={(event) => setImage(event.target.files?.[0] || null)} required className="app-input app-input--file" />
+                        {image && <p className="file-selected">Selected: {image.name}</p>}
 
-                    <form className="flex flex-col items-center z-10" encType='multiPart/form-data'>
-                        <label htmlFor="image" className="font-serif text-xl font-bold my-5">
-                            Enter The Image To Be Placed In The Album
-                        </label>
-                        <input
-                            type="file"
-                            id="image"
-                            name="image"
-                            onChange={(e) => setImage(e.target.files[0])}
-                            className="outline outline-2 outline-indigo-500 w-64 h-12 font-serif font-normal rounded-sm px-2 py-1 focus:shadow-xl"
-                        />
+                        <label htmlFor="description">Add a caption or memory</label>
+                        <textarea id="description" name="description" value={description} maxLength={240} required
+                            onChange={(event) => setDescription(event.target.value)} className="app-input app-textarea"
+                            placeholder="Who is in this photo? What do you remember about this day?" />
+                        <p className="label-hint">{description.length}/240 characters</p>
 
-                        <label htmlFor="description" className="font-serif text-xl font-bold my-5">
-                            Enter The Description of The Image
-                        </label>
-                        <textarea
-                            type="text"
-                            id="description"
-                            name="description"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="outline outline-2 outline-indigo-500 w-64 h-20 font-serif font-normal rounded-sm px-2 py-1 focus:shadow-xl"
-                        >
-
-                        </textarea>
-
-                        <button
-                            type="submit"
-                            className="font-bold mt-10 font-serif text-md bg-indigo-300 p-3 cursor-pointer rounded-lg
-                    outline outline-2 outline-indigo-500 w-24 hover:bg-indigo-200 transition duration-300 ease-in-out"
-                            onClick={handleSetAlbum}>
-                            Set
+                        <button type="submit" className="app-button app-button--primary" disabled={saving}>
+                            {saving ? 'Saving…' : 'Add to memory album'}
                         </button>
                     </form>
-
+                    {message && <p role="status" className="form-message form-message--success">{message}</p>}
+                    {error && <p role="alert" className="form-message form-message--error">{error}</p>}
                 </section>
-                {res && <p className='font-serif font-bold text-violet-500 my-3'>{res}</p>}
 
-            </div>
+                <section className="manage-section">
+                    <div className="care-notes-list__heading">
+                        <div>
+                            <span className="page-heading__eyebrow">SHARED MEMORIES</span>
+                            <h2>{albums.length} photo{albums.length === 1 ? '' : 's'} in the album</h2>
+                        </div>
+                        <button type="button" className="app-button app-button--secondary" onClick={loadAlbums} disabled={loading}>
+                            {loading ? 'Refreshing…' : 'Refresh'}
+                        </button>
+                    </div>
+
+                    {loading && <p role="status" className="app-empty">Opening the album...</p>}
+                    {!loading && albums.length === 0 && (
+                        <div className="app-empty app-empty--wide">
+                            <span className="empty-icon" aria-hidden="true">▧</span>
+                            <h2>The album is ready for memories</h2>
+                            <p>Add a photo above and your loved one will see it in their memory album.</p>
+                        </div>
+                    )}
+
+                    <div className="album-manage-grid">
+                        {albums.map((album) => (
+                            <article className="album-manage-card" key={album._id}>
+                                <img src={apiAssetUrl(album.imageUrl)} alt={album.description} loading="lazy" />
+                                <div className="album-manage-card__body">
+                                    {editingId === album._id ? (
+                                        <>
+                                            <label className="sr-only" htmlFor={`caption-${album._id}`}>Caption</label>
+                                            <textarea
+                                                id={`caption-${album._id}`}
+                                                value={editingDescription}
+                                                onChange={(event) => setEditingDescription(event.target.value)}
+                                                maxLength={240}
+                                                rows={3}
+                                                className="app-input app-textarea"
+                                            />
+                                            <div className="manage-item__actions">
+                                                <button type="button" className="app-button app-button--primary" onClick={() => saveCaption(album._id)}>Save caption</button>
+                                                <button type="button" className="app-button app-button--secondary" onClick={() => setEditingId(null)}>Cancel</button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p>{album.description}</p>
+                                            <div className="manage-item__actions">
+                                                <button type="button" className="app-button app-button--secondary" onClick={() => startEditing(album)}>Edit caption</button>
+                                                <button type="button" className="app-button app-button--danger" onClick={() => removeAlbum(album)} disabled={deletingId === album._id}>
+                                                    {deletingId === album._id ? 'Removing…' : 'Remove'}
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+            </main>
             <Footer />
-
         </div>
     )
 }

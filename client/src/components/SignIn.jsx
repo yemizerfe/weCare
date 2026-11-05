@@ -1,7 +1,6 @@
-import React from 'react'
-import axios from 'axios';
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom';
+import api from '../api';
 
 function SignIn({ onCloseClick }) {
     const navigate = useNavigate();
@@ -21,17 +20,17 @@ function SignIn({ onCloseClick }) {
         }
 
         setRoleError(false);
+        setRes('');
 
         try {
 
-            const response = await axios.post('http://localhost:3000/signIn', {
+            await api.post('/auth/signin', {
                 email,
                 password,
                 role
 
             });
 
-            localStorage.setItem('token', response.data.token);
             setEmail('');
             setPassword('');
 
@@ -42,7 +41,7 @@ function SignIn({ onCloseClick }) {
                 return navigate('/caregiver');
         }
         catch (e) {
-console.log(e);
+            setRes(e.response?.data?.message || 'Unable to sign in right now. Please try again.');
         }
 
 
@@ -51,28 +50,34 @@ console.log(e);
 
     return (
 
-        <div>
-
-            <form onSubmit={handleSignIn} className='shadow-lg shadow-indigo-200 w-sm rounded-lg p-5 bg-white'>
-                <div className='flex flex-row justify-end'>
-                    <button className={`rounded-full ring-1 ring-gray-300 p-3  my-3 mx-3 font-bold text-md font-serif w-fit focus:translate-0.5
-                    ${role == 'patient' ? 'bg-violet-400' : ' bg-violet-300 hover:bg-indigo-100'}`}
+        <div className="auth-dialog">
+            <form onSubmit={handleSignIn} className="auth-form">
+                <div className="auth-form__top">
+                    <div>
+                        <span className="auth-form__eyebrow">WELCOME BACK</span>
+                        <h2>Sign in to weCare</h2>
+                    </div>
+                    <button type="button" aria-label="Close sign in" className="auth-form__close" onClick={onCloseClick}>&times;</button>
+                </div>
+                <p className="auth-form__hint">First, tell us how you use weCare.</p>
+                <div className="auth-form__roles" role="group" aria-label="Choose your role">
+                    <button className={`auth-role${role === 'patient' ? ' auth-role--selected' : ''}`}
+                        type="button"
+                        aria-pressed={role === 'patient'}
                         onClick={() => setRole('patient')}
-                    >Patient
+                    ><span aria-hidden="true">☺</span> Patient
                     </button>
-                    <button className={`rounded-full ring-1 ring-gray-300 p-3  my-3 font-bold text-md font-serif mx-7 w-fit focus:translate-0.5
-                     ${role == 'caregiver' ? 'bg-violet-400' : 'bg-violet-300 hover:bg-indigo-100'}`}
+                    <button className={`auth-role${role === 'caregiver' ? ' auth-role--selected' : ''}`}
+                        type="button"
+                        aria-pressed={role === 'caregiver'}
                         onClick={() => setRole('caregiver')}
-                    >Caregiver
+                    ><span aria-hidden="true">✚</span> Caregiver
                     </button>
-                    <button className='ring-2 ring-gray-300 rounded-full font-bold text-xl w-8 h-8 hover:bg-gray-200 focus:translate-0.5'
-                        onClick={onCloseClick}
-                    >&times;</button>
                 </div>
 
-                <div className='flex flex-col items-center'>
-                    <label htmlFor="Email" className='block my-3 font-bold font-serif'>Email</label>
-                    <input type="email" className='outline-3 outline-offset-2 outline-double outline-indigo-500 w-xs font-serif font-normal rounded-sm px-2 focus:shadow-xl'
+                <div className="auth-form__fields">
+                    <label htmlFor="Email">Email address</label>
+                    <input type="email" autoComplete="email" className="app-input"
                         name='Email'
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -81,8 +86,8 @@ console.log(e);
                         required
                     />
 
-                    <label htmlFor="pass" className='block my-3 font-bold font-serif'>Password</label>
-                    <input type="password" className='outline-3 outline-offset-2 outline-double outline-indigo-500 w-xs rounded-sm px-2 focus:shadow-xl'
+                    <label htmlFor="pass">Password</label>
+                    <input type="password" autoComplete="current-password" className="app-input"
                         name='password'
                         id='pass'
                         value={password}
@@ -91,17 +96,13 @@ console.log(e);
                         required
                     />
 
-                    {roleError && <p className='font-serif font-bold text-violet-500 my-3'>Please Select a Role!</p>}
+                    {roleError && <p role="alert" className="form-message form-message--error">Please select a role.</p>}
 
-                    <br />
-
-                    <button type='submit' className='font-bold font-serif text-md bg-indigo-300 p-3 cursor-pointer rounded-lg outline-3 
-                    outline-offset-2 outline-double outline-indigo-500 hover:bg-indigo-200 focus:translate-0.5'>
-                        SignIn
+                    <button type="submit" className="app-button app-button--primary auth-form__submit">
+                        Sign in
                     </button>
 
-                    {res && <p className='font-serif font-bold text-violet-500 my-3'>{res}</p>}
-
+                    {res && <p role="alert" className="form-message form-message--error">{res}</p>}
                 </div>
             </form>
         </div>

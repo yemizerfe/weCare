@@ -1,73 +1,112 @@
-import React from 'react'
-import { useState, useEffect } from 'react'
-import axios from 'axios'
-import Features from '../Features'
-import Whoisitfor from '../whoisitfor'
+import { useCallback, useEffect, useState } from 'react'
 import HeaderPatient from '../HeaderPatient'
 import Footer from '../Footer'
-import seememoryAlbum from '../../assets/Images/seememories.png'
+import PageHeading from '../PageHeading'
+import api, { apiAssetUrl } from '../../api'
 
 function SeeMemoryAlbum() {
-    const [photos, setPhotos] = useState([]);
+    const [photos, setPhotos] = useState([])
+    const [error, setError] = useState('')
+    const [loading, setLoading] = useState(true)
+    const [activeIndex, setActiveIndex] = useState(null)
 
-    const fetchImages = async () => {
-        const response = await axios.get('http://localhost:3000/viewAlbum');
-
-        console.log(response.data);
-        setPhotos(response.data);
-    }
+    const loadPhotos = useCallback(async () => {
+        try {
+            const { data } = await api.get('/albums')
+            setPhotos(data)
+            setError('')
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || 'Unable to load your memories. Please try again.')
+        } finally {
+            setLoading(false)
+        }
+    }, [])
 
     useEffect(() => {
+        loadPhotos()
+    }, [loadPhotos])
 
-        fetchImages();
-    }, []);
+    useEffect(() => {
+        if (activeIndex === null) return undefined
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') setActiveIndex(null)
+            if (event.key === 'ArrowRight') setActiveIndex((index) => (index + 1) % photos.length)
+            if (event.key === 'ArrowLeft') setActiveIndex((index) => (index - 1 + photos.length) % photos.length)
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+    }, [activeIndex, photos.length])
 
-    const handleDeleteAlbum = async (id) => {
-        const response = await axios.delete(`http://localhost:3000/deleteAlbum/${id}`);
-        setPhotos(prev => prev.filter(photo => photo._id != id));
+    const activePhoto = activeIndex === null ? null : photos[activeIndex]
 
-
-    }
     return (
-        <div>
+        <div className="app-page">
             <HeaderPatient />
-            <h1 className='text-center text-7xl font-serif m-24 font-bold '>weCare</h1>
-            <div className='flex flex-col items-center justify-center my-10'>
+            <main className="app-main">
+                <PageHeading eyebrow="A place for your favorite moments" title="Memory album" description="Photos and familiar stories, gathered in one lovely place.">
+                    <button type="button" className="app-button app-button--secondary" onClick={loadPhotos} disabled={loading}>
+                        {loading ? 'Refreshing…' : 'Refresh album'}
+                    </button>
+                </PageHeading>
 
-                <h2 className='w-full shadow-2xl shadow-indigo-100  p-5 font-serif text-2xl text-center text-indigo-500'>See Memories From Your Album!</h2>
-
-            </div>
-            <hr className='border-1 border-indigo-200' />
-
-            <section className='w-64 bg-white mx-auto'>
-
-                <Whoisitfor image={seememoryAlbum} />
-            </section>
-            <div className='p-10 bg-gray-200' >
-            </div>
-
-            <section className='flex flex-wrap justify-center my-5'>
-                {photos.length > 0 ? photos.map(photo => (
-                    <React.Fragment key={photo._id}
-                    >
-                        <div className='flex flex-col items-center'>
-                            <Features
-                                image={`http://localhost:3000/viewAlbum/${photo.imageName}`}
-                                text={photo.description}
-                            />
-                            <button className='ring-1 rounded-sm font-bold text-red-500 p-2 mx-10 hover: cursor-pointer focus:translate-1'
-                                onClick={() => handleDeleteAlbum(photo._id)}>Delete</button>
-
-
+                <section className="memory-grid" aria-live="polite">
+                    {loading && <p role="status" className="app-empty">Opening your album...</p>}
+                    {error && <p role="alert" className="form-message form-message--error">{error}</p>}
+                    {!loading && !error && photos.length === 0 && (
+                        <div className="app-empty app-empty--wide">
+                            <span className="empty-icon" aria-hidden="true">▧</span>
+                            <h2>Your album is ready for memories</h2>
+                            <p>Your caregiver can add special photos and the stories behind them.</p>
                         </div>
-                    </React.Fragment>
-                )) : (<div className='flex flex-row justify-center'>
+                    )}
+                    {!error && photos.map((photo, index) => (
+                        <button
+                            type="button"
+                            className="memory-card"
+                            key={photo._id}
+                            onClick={() => setActiveIndex(index)}
+                            aria-label={`Open photo: ${photo.description}`}
+                        >
+                            <span className="memory-card__image-wrap">
+                                <img src={apiAssetUrl(photo.imageUrl)} alt="" loading="lazy" />
+                            </span>
+                            <span className="memory-card__caption">{photo.description}</span>
+                            <span className="memory-card__hint">Tap to see it larger <span aria-hidden="true">↗</span></span>
+                        </button>
+                    ))}
+                </section>
 
-                    <p className='font-serif font-bold text-violet-500 my-3'>No Album found!</p>
-                </div>
+                {activePhoto && (
+                    <div
+                        className="photo-viewer"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={activePhoto.description}
+                        onMouseDown={(event) => {
+                            if (event.target === event.currentTarget) setActiveIndex(null)
+                        }}
+                    >
+                        <div className="photo-viewer__panel">
+                            <button type="button" className="photo-viewer__close" onClick={() => setActiveIndex(null)} aria-label="Close photo">
+                                ×
+                            </button>
+                            <img src={apiAssetUrl(activePhoto.imageUrl)} alt={activePhoto.description} />
+                            <p>{activePhoto.description}</p>
+                            {photos.length > 1 && (
+                                <div className="photo-viewer__nav">
+                                    <button type="button" className="app-button app-button--secondary" onClick={() => setActiveIndex((activeIndex - 1 + photos.length) % photos.length)}>
+                                        ← Previous
+                                    </button>
+                                    <span>{activeIndex + 1} of {photos.length}</span>
+                                    <button type="button" className="app-button app-button--secondary" onClick={() => setActiveIndex((activeIndex + 1) % photos.length)}>
+                                        Next →
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 )}
-
-            </section>
+            </main>
             <Footer />
         </div>
     )

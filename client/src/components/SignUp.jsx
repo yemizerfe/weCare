@@ -1,7 +1,6 @@
-import React from 'react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 
 function SignUp({ onCloseClick }) {
   const navigate = useNavigate();
@@ -13,6 +12,7 @@ function SignUp({ onCloseClick }) {
   const [role, setRole] = useState('');
   const [roleError, setRoleError] = useState(false);
   const [passwordError, setPasswordError] = useState(false);
+  const [caregiverCode, setCaregiverCode] = useState('');
   const [res, setRes] = useState('');
 
   const handleSignUp = async (e) => {
@@ -40,11 +40,12 @@ function SignUp({ onCloseClick }) {
 
 
 
-      const response = await axios.post('http://localhost:3000/signUp', {
+      await api.post('/auth/signup', {
         fullname: fullName,
         email,
         password,
-        role
+        role,
+        caregiverCode: role === 'patient' ? caregiverCode.trim() : undefined,
       });
 
       setFullName('');
@@ -52,42 +53,45 @@ function SignUp({ onCloseClick }) {
       setPassword('');
       setConfirmPassword('');
       setRole('');
+      setCaregiverCode('');
+      setRes('');
 
-      if (role == 'patient')
-        return navigate('/patient');
+      if (role === 'patient') return navigate('/patient');
 
-      else if (role == 'caregiver')
-        return navigate('/caregiver');
+      return navigate('/caregiver');
 
 
     }
     catch (e) {
+      setRes(e.response?.data?.message || 'Unable to create your account right now. Please try again.');
     }
   }
 
   return (
-    <div>
-      <form onSubmit={handleSignUp} className='shadow-lg shadow-indigo-200 w-sm rounded-lg  p-5 bg-white'>
-        <div className='flex flex-row justify-end'>
-          <button className={`rounded-full ring-1 ring-gray-300 p-3  my-3 mx-3 font-bold text-md font-serif  w-fit focus:translate-0.5
-           ${role == 'patient' ? 'bg-violet-400' : ' bg-violet-300 hover:bg-indigo-100'}`}
-            onClick={() => setRole('patient')}>
-            Patient
+    <div className="auth-dialog">
+      <form onSubmit={handleSignUp} className="auth-form">
+        <div className="auth-form__top">
+          <div>
+            <span className="auth-form__eyebrow">YOUR CARE SPACE</span>
+            <h2>Create your account</h2>
+          </div>
+          <button type="button" aria-label="Close sign up" className="auth-form__close" onClick={onCloseClick}>&times;</button>
+        </div>
+        <p className="auth-form__hint">Choose your role to get started.</p>
+        <div className="auth-form__roles" role="group" aria-label="Choose your role">
+          <button className={`auth-role${role === 'patient' ? ' auth-role--selected' : ''}`}
+            type="button" aria-pressed={role === 'patient'} onClick={() => setRole('patient')}>
+            <span aria-hidden="true">☺</span> Patient
           </button>
-          <button className={`rounded-full ring-1 ring-gray-300 p-3 my-3 font-bold text-md font-serif mx-7 hover:bg-indigo-100 w-fit focus:translate-0.5 
-           ${role == 'caregiver' ? 'bg-violet-400' : 'bg-violet-300 hover:bg-indigo-100'}`}
-            onClick={() => setRole('caregiver')}>
-            Caregiver
-          </button>
-          <button className='ring-2 ring-gray-300 rounded-full font-bold text-xl w-8 h-8 hover:bg-gray-200 focus:translate-0.5'
-            onClick={onCloseClick}>
-            &times;
+          <button className={`auth-role${role === 'caregiver' ? ' auth-role--selected' : ''}`}
+            type="button" aria-pressed={role === 'caregiver'} onClick={() => setRole('caregiver')}>
+            <span aria-hidden="true">✚</span> Caregiver
           </button>
         </div>
 
-        <div className='flex flex-col items-center'>
-          <label htmlFor="name" className='block my-3 font-bold font-serif'>FullName</label>
-          <input type="text" className='outline-3 outline-offset-2 outline-double outline-indigo-500 w-xs font-serif font-normal rounded-sm px-2 focus:shadow-xl'
+        <div className="auth-form__fields">
+          <label htmlFor="name">Full name</label>
+          <input type="text" autoComplete="name" maxLength={100} className="app-input"
             name='fullname'
             id='name'
             placeholder='John Doe Simpsons'
@@ -96,8 +100,8 @@ function SignUp({ onCloseClick }) {
             required
           />
 
-          <label htmlFor="Email" className='block my-3 font-bold font-serif'>Email</label>
-          <input type="email" className='outline-3 outline-offset-2 outline-double outline-indigo-500 w-xs font-serif font-normal rounded-sm px-2 focus:shadow-xl'
+          <label htmlFor="Email">Email address</label>
+          <input type="email" autoComplete="email" className="app-input"
             name='email'
             id='Email'
             placeholder='Johndoe@gmail.com'
@@ -106,8 +110,8 @@ function SignUp({ onCloseClick }) {
             required
           />
 
-          <label htmlFor="pass" className='block my-3 font-bold font-serif'>Password</label>
-          <input type="password" className='outline-3 outline-offset-2 outline-double outline-indigo-500 w-xs rounded-sm px-2 focus:shadow-xl'
+          <label htmlFor="pass">Password</label>
+          <input type="password" autoComplete="new-password" className="app-input"
             name='password'
             id='pass'
             placeholder='xxxxxxxx'
@@ -116,10 +120,26 @@ function SignUp({ onCloseClick }) {
             required
           />
 
-          {passwordError && <p className='text-red-500 font-serif font-normal my-3'>Passwords Must Be at Least 8 Characters Long!</p>}
+          {role === 'patient' && (
+            <>
+              <label htmlFor="caregiverCode">Caregiver connection code (optional)</label>
+              <input
+                type="text"
+                id="caregiverCode"
+                value={caregiverCode}
+                onChange={(e) => setCaregiverCode(e.target.value.toUpperCase())}
+                maxLength={10}
+                autoComplete="off"
+                className="app-input"
+                placeholder="Ask your caregiver for their code"
+              />
+            </>
+          )}
 
-          <label htmlFor="confirmPass" className='block my-3 font-bold font-serif'>Confirm Password</label>
-          <input type="password" className='outline-3 outline-offset-2 outline-double outline-indigo-500 w-xs rounded-sm mb-5 px-2 focus:shadow-xl'
+          {passwordError && <p role="alert" className="form-message form-message--error">Password must be at least 8 characters long.</p>}
+
+          <label htmlFor="confirmPass">Confirm password</label>
+          <input type="password" autoComplete="new-password" className="app-input"
             id='confirmPass'
             placeholder='xxxxxxxx'
             value={confirmPassword}
@@ -127,15 +147,14 @@ function SignUp({ onCloseClick }) {
             required
           />
 
-          {showConfirm && <p className='text-red-500 font-serif font-normal my-3'>Passwords Must Match!</p>}
+          {showConfirm && <p role="alert" className="form-message form-message--error">Passwords must match.</p>}
 
-          {roleError && <p className='font-serif font-bold text-violet-500 my-3'>Please Select a Role!</p>}
+          {roleError && <p role="alert" className="form-message form-message--error">Please select a role.</p>}
 
-          <button type='submit' className='font-bold font-serif text-md bg-indigo-300 p-3 cursor-pointer rounded-lg
-           outline-3 outline-offset-2 w-24 outline-double outline-indigo-500 hover:bg-indigo-200 focus:translate-0.5'>
-            SignUp
+          <button type="submit" className="app-button app-button--primary auth-form__submit">
+            Create account
           </button>
-          {res && <p className='font-serif font-bold text-violet-500 my-3'>{res}</p>}
+          {res && <p role="alert" className="form-message form-message--error">{res}</p>}
         </div>
       </form>
     </div>

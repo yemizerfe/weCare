@@ -1,0 +1,30 @@
+# Requires an ingress controller (for example ingress-nginx) and a TLS
+# certificate. Replace the host and secret name with your own domain.
+#
+# The web pod proxies /api to the API Service, so a single rule is enough.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wecare
+  labels:
+    app.kubernetes.io/part-of: wecare
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 6m
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - wecare.example.com
+      secretName: wecare-tls
+  rules:
+    - host: wecare.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  name: http
