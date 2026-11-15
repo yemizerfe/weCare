@@ -95,14 +95,30 @@ npm run dev
 
 The application will be available through the frontend development server.
 
-## Docker
+## Deployments
+
+The two folders are self-contained and deploy independently: `client/` builds a
+static bundle served by nginx, `server/` runs the Express API. Each has its own
+`Dockerfile`, `.gitignore`, `.env.example` and `LICENSE`.
+
+### Docker
 
 ```bash
-cp .env.example .env
+cd server
+cp .env.example .env      # set JWT_SECRET
 docker compose up --build
 ```
 
-Docker Compose runs the application together with its required services.
+`server/docker-compose.yml` runs the application together with its required
+services and builds the web image from `../client`.
+
+### Kubernetes
+
+```bash
+kubectl apply -k server/deploy/k8s
+```
+
+See `server/deploy/k8s/kustomization.yaml` for the prerequisites.
 
 ## Production
 
@@ -114,12 +130,16 @@ Production secrets should be provided through environment variables or the deplo
 
 ```text
 weCare/
-├── client/        # React frontend
-├── server/        # Express API
-├── deploy/        # Deployment configuration
-├── docker-compose.yml
-└── README.md
+├── client/                    # React frontend (own Dockerfile, .gitignore)
+│   ├── nginx.conf             # SPA fallback + /api proxy
+│   └── .env.example
+└── server/                    # Express API + MongoDB deployment
+    ├── docker-compose.yml     # local full stack
+    ├── deploy/k8s/            # cluster manifests
+    └── .env.example
 ```
+
+Nothing lives outside the two folders.
 
 ## Privacy Notice
 

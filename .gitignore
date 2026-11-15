@@ -1,6 +1,0 @@
-# Local configuration and secrets
-.env
-deploy/k8s/secret.yaml
-
-# Local screenshots captured during review
-

@@ -1,12 +1,14 @@
 # Local, production-shaped stack: MongoDB + API + nginx-served client.
 #
+#   cd server
 #   cp .env.example .env        # then set a long random JWT_SECRET
 #   docker compose up --build
 #   open http://localhost:8080
 #
 # The client and API share one origin through nginx (/api is proxied), so no
 # CORS configuration or cross-site cookies are needed. This is intentionally a
-# single-host setup: for real deployments use deploy/k8s with managed TLS.
+# single-host setup: for real deployments use server/deploy/k8s with managed TLS,
+# or deploy client/ and server/ separately (each folder has its own Dockerfile).
 services:
   mongo:
     image: mongo:7.0
@@ -23,7 +25,7 @@ services:
 
   api:
     build:
-      context: ./server
+      context: .
     restart: unless-stopped
     init: true
     depends_on:
@@ -33,7 +35,7 @@ services:
       NODE_ENV: production
       PORT: "3000"
       MONGODB_URI: mongodb://mongo:27017/wecare
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env to a random value of at least 32 characters}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in server/.env to a random value of at least 32 characters}
       CORS_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8080}
       # Compose serves plain HTTP locally, so the session cookie cannot be
       # marked Secure here. Kubernetes behind TLS leaves this unset.
@@ -56,7 +58,8 @@ services:
 
   web:
     build:
-      context: ./client
+      # The web app lives in the sibling folder; it is built from client/.
+      context: ../client
       # Same-origin default: the bundle calls /api, which nginx proxies.
       args:
         VITE_API_URL: ""
