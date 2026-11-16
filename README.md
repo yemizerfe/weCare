@@ -55,10 +55,11 @@ Location sharing is explicitly controlled by the patient and is temporary. The a
 
 ## Project
 
+**Live Demo:** [weCare — Live Application](https://wecare-dementia-support.netlify.app/)
+
 **Repository:** [github.com/yemizerfe/weCare](https://github.com/yemizerfe/weCare)
 
 ## Author
 
 **Yemisrach Zerfe**  
 Backend Software Engineer
-
